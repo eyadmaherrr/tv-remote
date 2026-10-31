@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TV Remote
 
-## Getting Started
+A phone remote for Samsung Tizen TVs (2016 and newer), as a website. Open it on your phone, connect
+once, and control the TV: arrows / OK, a swipe touchpad, back, home, volume, channels, numbers,
+play/pause, typing into the TV's keyboard, and one-tap app shortcuts (Clean Home, Quran Play,
+YouTube, Netflix, Shahid, WATCH IT, Yango Play, OSN+ — and any app you add).
 
-First, run the development server:
+Companion to [quran-tv-home](https://github.com/eyadmaherrr/quran-tv-home) (the Clean Home launcher
+and Quran Play app), but it works on any supported Samsung TV.
+
+## Using it
+
+Your **phone and TV must be on the same Wi-Fi**. The site walks you through this the first time:
+
+1. **Enter the TV's IP address** — on the TV: Settings → General → Network → Network Status → IP
+   Settings.
+2. **Trust the TV once** — open the link the site gives you (`https://<TV-IP>:8002/api/v2/`), tap
+   *Advanced → Proceed* (iPhone: *Show details → visit this website*). You'll see a page of text
+   from the TV; go back to the remote.
+3. **Connect** — the TV asks to allow "Phone Remote". Press **Allow** with your normal remote.
+
+After that it reconnects on its own. Tip: *Add to Home Screen* makes it open like an app.
+
+Some browsers also ask for permission to **access devices on your local network** — allow it.
+
+## How it works
+
+There's no server involved: the page talks straight from your phone to the TV over your Wi-Fi,
+using the remote API built into Samsung TVs.
+
+- Keys and text: WebSocket `wss://<TV-IP>:8002/api/v2/channels/samsung.remote.control`
+- App shortcuts: `POST https://<TV-IP>:8002/api/v2/applications/<appId>`
+
+The TV uses a self-signed certificate, which is why you trust it once. The TV's IP and the pairing
+token it hands out are stored only in your phone's browser (`localStorage`) — nothing is sent to
+this website or anywhere else.
+
+## Limits
+
+- **Power** can turn the TV **off**, not on — turning a TV on needs Wake-on-LAN, which websites can't
+  send.
+- **iPhone/Safari** may refuse the connection even after trusting the certificate (Safari is strict
+  about self-signed certificates for WebSockets). Chrome on Android works best.
+- Typing only works while a text field / keyboard is open on the TV.
+- App shortcuts use app ids from a 2021 Samsung TV. An id your TV doesn't have does nothing; add
+  your own in Settings.
+
+## Development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev      # http://localhost:3000
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Next.js (App Router) + TypeScript + Tailwind CSS. The remote is a client-only component
+(`src/components/Remote.tsx`); the TV protocol lives in `src/lib/tv.ts` and the app shortcuts in
+`src/lib/apps.ts`. Deployed on Vercel.
