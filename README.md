@@ -8,7 +8,30 @@ YouTube, Netflix, Shahid, WATCH IT, Yango Play, OSN+ — and any app you add).
 Companion to [quran-tv-home](https://github.com/eyadmaherrr/quran-tv-home) (the Clean Home launcher
 and Quran Play app), but it works on any supported Samsung TV.
 
-## Using it
+## Two ways to connect
+
+| | **Wi-Fi** (direct) | **SmartThings** (cloud) |
+|---|---|---|
+| Works on | Android, laptops | **iPhone**, Android, laptops |
+| Where | Same Wi-Fi as the TV | Anywhere |
+| Speed | Instant | About half a second per press |
+| Turn TV **on** | No | Yes |
+| Type into the TV | Yes | No |
+| Setup | TV's IP + trust it once + Allow | Sign in with your Samsung account |
+
+**iPhones must use SmartThings.** The TV's direct connection uses a certificate that's only valid
+for `127.0.0.1`, which Safari refuses, and the TV rejects the unencrypted port.
+
+### SmartThings
+
+1. Add your TV in the SmartThings app (**+ → Device → TV**, TV switched on).
+2. On the site, choose **Use SmartThings** and sign in with the same Samsung account.
+
+Sign-in is OAuth through a SmartThings "OAuth-In" app. The tokens (24 h access, 29-day rotating
+refresh) are kept in an encrypted, httpOnly cookie on your phone — no database. The server only
+forwards TV-remote commands (`samsungvd.remoteControl`, `switch`, `custom.launchapp`).
+
+### Wi-Fi
 
 Your **phone and TV must be on the same Wi-Fi**. The site walks you through this the first time:
 
@@ -23,7 +46,7 @@ After that it reconnects on its own. Tip: *Add to Home Screen* makes it open lik
 
 Some browsers also ask for permission to **access devices on your local network** — allow it.
 
-## How it works
+## How Wi-Fi mode works
 
 There's no server involved: the page talks straight from your phone to the TV over your Wi-Fi,
 using the remote API built into Samsung TVs.
@@ -37,11 +60,9 @@ this website or anywhere else.
 
 ## Limits
 
-- **Power** can turn the TV **off**, not on — turning a TV on needs Wake-on-LAN, which websites can't
-  send.
-- **iPhone/Safari** may refuse the connection even after trusting the certificate (Safari is strict
-  about self-signed certificates for WebSockets). Chrome on Android works best.
-- Typing only works while a text field / keyboard is open on the TV.
+- In Wi-Fi mode **Power** can turn the TV **off**, not on (that needs Wake-on-LAN, which websites
+  can't send). SmartThings mode can turn it on.
+- Typing only works in Wi-Fi mode, while a text field / keyboard is open on the TV.
 - App shortcuts use app ids from a 2021 Samsung TV. An id your TV doesn't have does nothing; add
   your own in Settings.
 
@@ -54,5 +75,15 @@ npm run build
 ```
 
 Next.js (App Router) + TypeScript + Tailwind CSS. The remote is a client-only component
-(`src/components/Remote.tsx`); the TV protocol lives in `src/lib/tv.ts` and the app shortcuts in
-`src/lib/apps.ts`. Deployed on Vercel.
+(`src/components/Remote.tsx`); Wi-Fi mode lives in `src/lib/tv.ts`, SmartThings mode in
+`src/lib/st/` and `src/app/api/st/`, and the app shortcuts in `src/lib/apps.ts`. Deployed on Vercel.
+
+### SmartThings setup (for your own deployment)
+
+1. Create an OAuth-In app with the [SmartThings CLI](https://github.com/SmartThingsCommunity/smartthings-cli):
+   `smartthings apps:create -i app.json`, where `app.json` has `"appType": "API_ONLY"`, scopes
+   `r:devices:*` and `x:devices:*`, and the redirect URI `https://<your-domain>/api/st/callback`.
+2. Set these environment variables on Vercel (never commit them):
+   - `ST_CLIENT_ID`, `ST_CLIENT_SECRET` — from the CLI's output
+   - `SESSION_SECRET` — a long random string (encrypts the session cookie)
+   - `ST_REDIRECT_URI` — optional, if the callback URL differs from `<origin>/api/st/callback`

@@ -18,6 +18,27 @@ export const DEFAULT_APPS: TvApp[] = [
   { id: "BlDC3WXVuw.sample", name: "OSN+" },
 ];
 
+/** "wifi": straight to the TV on the local network. "cloud": through SmartThings. */
+export type Mode = "wifi" | "cloud";
+
+const MODE_KEY = "tv.mode";
+
+export function loadMode(): Mode {
+  try {
+    return localStorage.getItem(MODE_KEY) === "cloud" ? "cloud" : "wifi";
+  } catch {
+    return "wifi";
+  }
+}
+
+export function saveMode(mode: Mode): void {
+  try {
+    localStorage.setItem(MODE_KEY, mode);
+  } catch {
+    /* ignore */
+  }
+}
+
 const IP_KEY = "tv.ip";
 const APPS_KEY = "tv.apps.custom";
 

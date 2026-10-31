@@ -4,7 +4,15 @@ import { useState } from "react";
 import { certUrl, isValidIp } from "@/lib/tv";
 
 /** First run: find the TV's IP, trust its certificate once, then connect and press Allow. */
-export function Setup({ initialIp, onConnect }: { initialIp: string; onConnect: (ip: string) => void }) {
+export function Setup({
+  initialIp,
+  onConnect,
+  onCloud,
+}: {
+  initialIp: string;
+  onConnect: (ip: string) => void;
+  onCloud: () => void;
+}) {
   const [ip, setIp] = useState(initialIp);
   const valid = isValidIp(ip);
 
@@ -16,6 +24,19 @@ export function Setup({ initialIp, onConnect }: { initialIp: string; onConnect: 
           Control your Samsung TV from this phone. Your phone and TV must be on the same Wi-Fi.
         </p>
       </header>
+
+      <section className="rounded-3xl border border-sky-300/20 bg-sky-300/10 p-5 leading-relaxed text-sky-50">
+        <h2 className="text-lg font-semibold">On an iPhone, or away from home?</h2>
+        <p className="mt-1 text-sky-50/80">
+          iPhones can&apos;t connect to the TV directly. Use SmartThings instead: sign in with your Samsung
+          account and control the TV through Samsung&apos;s cloud. Works anywhere, and can turn the TV on.
+        </p>
+        <button onClick={onCloud} className="mt-3 w-full rounded-2xl bg-white py-3 font-semibold text-black">
+          Use SmartThings
+        </button>
+      </section>
+
+      <p className="text-center text-sm text-white/45">— or connect directly over Wi-Fi (Android, laptops) —</p>
 
       <Step n={1} title="Enter your TV's IP address">
         <p>
