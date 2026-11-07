@@ -16,7 +16,9 @@
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         },
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSSpeechRecognitionUsageDescription": "TV Remote turns your voice commands into remote presses.",
+        "NSMicrophoneUsageDescription": "TV Remote uses the microphone for voice commands like \"open YouTube\"."
       }
     },
     "android": {
@@ -26,7 +28,10 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -53,6 +58,17 @@
           "backgroundColor": "#0b0d12"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "1e4561bb-b3e8-49c4-9ed1-35c3060e260d"
+      }
+    },
+    "owner": "eyadmaher"
   }
 }
