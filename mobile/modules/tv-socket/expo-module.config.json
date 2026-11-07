@@ -1,0 +1,5 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": { "modules": ["TvSocketModule"] },
+  "android": { "modules": ["expo.modules.tvsocket.TvSocketModule"] }
+}

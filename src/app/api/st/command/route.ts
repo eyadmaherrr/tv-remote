@@ -1,4 +1,4 @@
-import { accessToken, stConfigured, stFetch } from "@/lib/st/server";
+import { auth, json, stConfigured, stFetch } from "@/lib/st/server";
 import { ST_ALLOWED, type StCommand } from "@/lib/st/commands";
 
 /** POST { deviceId, command: { capability, command, arguments? } } → runs it on the TV. */
@@ -16,13 +16,14 @@ export async function POST(request: Request) {
   if (!(ST_ALLOWED[command.capability] || []).includes(command.command)) return Response.json({ error: "not-allowed" }, { status: 400 });
   const args = (command.arguments || []).filter((a) => typeof a === "string" || typeof a === "number").slice(0, 2);
 
-  const token = await accessToken();
+  const a = await auth(request);
+  const token = a.token;
   if (!token) return Response.json({ error: "signed-out" }, { status: 401 });
   const res = await stFetch(`/v1/devices/${deviceId}/commands`, token, {
     method: "POST",
     body: JSON.stringify({ commands: [{ component: "main", capability: command.capability, command: command.command, arguments: args }] }),
   });
   if (res.status === 401) return Response.json({ error: "signed-out" }, { status: 401 });
-  if (!res.ok) return Response.json({ error: "smartthings", status: res.status, detail: (await res.text()).slice(0, 300) }, { status: 502 });
-  return Response.json({ ok: true });
+  if (!res.ok) return json({ error: "smartthings", status: res.status, detail: (await res.text()).slice(0, 300) }, a, { status: 502 });
+  return json({ ok: true }, a);
 }

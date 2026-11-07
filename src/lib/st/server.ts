@@ -19,6 +19,12 @@ export const ST_SCOPES = "r:devices:* x:devices:*";
 
 const SESSION_COOKIE = "st_session";
 const STATE_COOKIE = "st_state";
+/** Set when sign-in was started by the mobile app (it gets its session back via tvremote://). */
+const CLIENT_COOKIE = "st_client";
+/** The mobile app sends its session as `Authorization: Session <sealed>`. */
+const SESSION_HEADER_PREFIX = "Session ";
+/** Where the mobile app receives its session after sign-in. */
+export const APP_REDIRECT = "tvremote://auth";
 const REFRESH_LIFETIME_S = 29 * 24 * 3600;
 
 interface Session {
@@ -76,9 +82,12 @@ export async function clearSession(): Promise<void> {
 }
 
 /** Starts sign-in: remembers a CSRF state and returns the SmartThings authorize URL. */
-export async function beginLogin(origin: string): Promise<string> {
+export async function beginLogin(origin: string, forApp = false): Promise<string> {
   const state = randomBytes(16).toString("base64url");
-  (await cookies()).set(STATE_COOKIE, state, { ...cookieOpts, maxAge: 600 });
+  const jar = await cookies();
+  jar.set(STATE_COOKIE, state, { ...cookieOpts, maxAge: 600 });
+  if (forApp) jar.set(CLIENT_COOKIE, "app", { ...cookieOpts, maxAge: 600 });
+  else jar.delete(CLIENT_COOKIE);
   const q = new URLSearchParams({
     client_id: process.env.ST_CLIENT_ID || "",
     response_type: "code",
@@ -101,29 +110,62 @@ async function tokenRequest(params: Record<string, string>): Promise<Session> {
   return { access: t.access_token, refresh: t.refresh_token, exp: Date.now() + (t.expires_in || 86400) * 1000 };
 }
 
-/** Finishes sign-in: checks state, swaps the code for tokens and stores them. */
-export async function finishLogin(origin: string, code: string, state: string): Promise<void> {
+/**
+ * Finishes sign-in: checks state and swaps the code for tokens. The website keeps them in its
+ * cookie; for the mobile app the sealed session is returned so the callback can hand it over.
+ */
+export async function finishLogin(origin: string, code: string, state: string): Promise<{ appSession?: string }> {
   const jar = await cookies();
   const expected = jar.get(STATE_COOKIE)?.value;
+  const forApp = jar.get(CLIENT_COOKIE)?.value === "app";
   jar.delete(STATE_COOKIE);
+  jar.delete(CLIENT_COOKIE);
   if (!expected || expected !== state) throw new Error("Sign-in expired or was tampered with. Try again.");
-  await saveSession(await tokenRequest({ grant_type: "authorization_code", code, redirect_uri: redirectUri(origin) }));
+  const session = await tokenRequest({ grant_type: "authorization_code", code, redirect_uri: redirectUri(origin) });
+  if (forApp) return { appSession: seal(session) };
+  await saveSession(session);
+  return {};
 }
 
-/** A valid access token, refreshing (and re-saving the rotated tokens) when it's near expiry. */
-export async function accessToken(): Promise<string | null> {
-  const sealed = (await cookies()).get(SESSION_COOKIE)?.value;
+/** Whether this sign-in was started by the mobile app (read before finishLogin clears it). */
+export async function loginIsForApp(): Promise<boolean> {
+  return (await cookies()).get(CLIENT_COOKIE)?.value === "app";
+}
+
+export interface StAuth {
+  token: string | null;
+  /** Mobile app only: the re-sealed session after a refresh, for the app to store. */
+  renewed?: string;
+}
+
+/**
+ * A valid access token for this request, refreshing when it's near expiry. The website's
+ * session is in a cookie (re-saved on refresh); the mobile app sends its own in a header and
+ * gets the rotated one back in `renewed`.
+ */
+export async function auth(request?: Request): Promise<StAuth> {
+  const header = request ? request.headers.get("authorization") || "" : "";
+  const fromApp = header.startsWith(SESSION_HEADER_PREFIX);
+  const sealed = fromApp ? header.slice(SESSION_HEADER_PREFIX.length).trim() : (await cookies()).get(SESSION_COOKIE)?.value;
   const s = sealed ? open<Session>(sealed) : null;
-  if (!s) return null;
-  if (s.exp - Date.now() > 5 * 60 * 1000) return s.access;
+  if (!s) return { token: null };
+  if (s.exp - Date.now() > 5 * 60 * 1000) return { token: s.access };
   try {
     const next = await tokenRequest({ grant_type: "refresh_token", refresh_token: s.refresh });
+    if (fromApp) return { token: next.access, renewed: seal(next) };
     await saveSession(next);
-    return next.access;
+    return { token: next.access };
   } catch {
-    await clearSession();
-    return null;
+    if (!fromApp) await clearSession();
+    return { token: null };
   }
+}
+
+/** JSON response that also hands a renewed app session back in `X-ST-Session`. */
+export function json(body: unknown, a: StAuth | null, init: ResponseInit = {}): Response {
+  const headers = new Headers(init.headers);
+  if (a && a.renewed) headers.set("X-ST-Session", a.renewed);
+  return Response.json(body, { ...init, headers });
 }
 
 export async function stFetch(path: string, token: string, init: RequestInit = {}): Promise<Response> {
