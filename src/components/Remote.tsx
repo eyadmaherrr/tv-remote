@@ -7,6 +7,8 @@ import {
   DEFAULT_APPS, loadCustomApps, loadIp, loadMode, saveCustomApps, saveIp, saveMode, type Mode, type TvApp,
 } from "@/lib/apps";
 import { Setup } from "./Setup";
+import { VoiceButton } from "./Voice";
+import type { VoiceAction } from "@/lib/voice/parse";
 import {
   IconBack, IconClose, IconDown, IconForward, IconGear, IconHome, IconInput, IconKeyboard,
   IconLeft, IconMenu, IconMinus, IconMute, IconNumbers, IconPad, IconPause, IconPlay, IconPlus, IconPower,
@@ -183,14 +185,40 @@ function Remote({
     [tv, cloud, say],
   );
 
-  const apps = [...DEFAULT_APPS, ...custom];
+  const apps = useMemo(() => [...DEFAULT_APPS, ...custom], [custom]);
+
+  /** Runs spoken commands in order; repeats ("volume up 3") are spaced like real presses. */
+  const runVoice = useCallback(
+    (actions: VoiceAction[]) => {
+      const gap = cloudMode ? 650 : 220;
+      let at = 0;
+      const later = (fn: () => void) => {
+        setTimeout(fn, at);
+        at += gap;
+      };
+      for (const a of actions) {
+        if (a.type === "launch") {
+          const app = apps.find((x) => x.id === a.appId);
+          if (app) later(() => launch(app));
+        } else if (a.type === "power") {
+          if (a.on && !cloudMode) say("Turning the TV on needs SmartThings mode");
+          else later(() => press(a.on ? "KEY_POWERON" : "KEY_POWER"));
+        } else {
+          for (let i = 0; i < a.times; i++) later(() => press(a.code));
+        }
+        at += gap; // a little extra between different commands (e.g. after opening an app)
+      }
+    },
+    [apps, cloudMode, launch, press, say],
+  );
+
   const connected = cloudMode ? cloudStatus === "connected" : wifiStatus === "connected";
   const pending = cloudMode ? cloudStatus === "checking" : wifiStatus === "connecting" || wifiStatus === "waiting";
   const tvName = cloudMode ? (tvs.find((t) => t.id === cloud?.deviceId)?.name || "SmartThings") : "Samsung TV";
 
   return (
     <RepeatRate.Provider value={cloudMode ? 450 : 130}>
-      <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-5 px-5 pb-8 pt-6 select-none">
+      <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-5 px-5 pb-28 pt-6 select-none">
         <header className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span className={"size-2.5 shrink-0 rounded-full " + (connected ? "bg-emerald-400" : pending ? "bg-amber-400" : "bg-red-400")} />
@@ -336,6 +364,8 @@ function Remote({
             onCustom={(list) => { setCustom(list); saveCustomApps(list); }}
           />
         ) : null}
+
+        <VoiceButton apps={apps} run={runVoice} />
 
         <div
           className={

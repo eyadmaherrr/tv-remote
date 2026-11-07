@@ -8,6 +8,24 @@ YouTube, Netflix, Shahid, WATCH IT, Yango Play, OSN+ — and any app you add).
 Companion to [quran-tv-home](https://github.com/eyadmaherrr/quran-tv-home) (the Clean Home launcher
 and Quran Play app), but it works on any supported Samsung TV.
 
+## Voice commands
+
+Tap the round mic button and speak, in English or Arabic:
+
+| Say | Does |
+|---|---|
+| "Open YouTube" / "افتح يوتيوب" (any app shortcut) | Opens the app |
+| "Close YouTube" / "اقفل يوتيوب" | Leaves the app |
+| "Turn off the TV" / "اقفل التلفزيون" | Power off |
+| "Turn on the TV" / "شغل التلفزيون" | Power on (SmartThings mode) |
+| "Go back" / "ارجع" · "Go home" (Clean Home) · "Exit" | Navigation |
+| "Volume up 3" / "ارفع الصوت ٣ مرات" · "Mute" / "اكتم الصوت" | Volume |
+| "Go down", "Left", "OK", "Pause", "Play", "Next channel" | Remote keys |
+| "Open Netflix and turn the volume down" | Chained commands |
+
+It uses the phone's own speech recognition (Google's in Chrome, Apple's in Safari), so there's no
+account or key. Commands are matched by `src/lib/voice/parse.ts`.
+
 ## Two ways to connect
 
 | | **Wi-Fi** (direct) | **SmartThings** (cloud) |
